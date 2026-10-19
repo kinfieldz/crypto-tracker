@@ -1,0 +1,12 @@
+{
+  "name": "crypto-tracker",
+  "version": "1.0.0",
+  "description": "Local crypto price tracker with market cap filters and buy alerts",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

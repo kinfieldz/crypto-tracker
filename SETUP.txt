@@ -1,0 +1,94 @@
+Here's a complete setup guide for the Crypto Price Tracker.
+
+### Setup Guide — Crypto Price Tracker
+
+#### 1. Requirements
+- Node.js (v18 or newer) — [https://nodejs.org](https://nodejs.org)
+- Git — [https://git-scm.com](https://git-scm.com)
+- A Solana wallet private key (only needed if you want the “Buy In” button to work)
+
+#### 2. Download or clone the project
+**Option A — From the zip**  
+Extract `crypto-tracker.tar.gz` into a folder (example: `C:\Users\stink\Documents\crypto-tracker`).
+
+**Option B — From GitHub**
+```cmd
+git clone https://github.com/kinfieldz/crypto-tracker.git
+cd crypto-tracker
+```
+
+#### 3. Install dependencies
+```cmd
+npm install
+```
+
+#### 4. Configure the private key (optional)
+Only needed if you want the automated “Buy In” feature.
+
+1. Copy the example file:
+   ```cmd
+   copy .env.example .env
+   ```
+2. Open `.env` in Notepad and replace the placeholder with your real base58 private key:
+   ```
+   PRIVATE_KEY=your_real_base58_key_here
+   RPC_URL=https://api.mainnet-beta.solana.com
+   ```
+
+**Security note:** Never commit the real `.env` file. The included `.gitignore` already blocks it.
+
+#### 5. Start the tracker
+```cmd
+node server.js
+```
+
+You should see:
+```
+Tracker → http://localhost:3000/tracker.html
+```
+
+#### 6. Open the dashboard
+Go to: **http://localhost:3000/tracker.html**
+
+#### 7. Using the tracker
+1. Allow browser notifications when prompted.
+2. Paste a Solana token mint address (or symbol) into the input box.
+3. Set:
+   - Alert if up %
+   - Alert if down %
+   - Min Market Cap ($)
+   - Min 24h Volume ($)
+4. Click **Add**.
+5. The table will show price, market cap, volume, and 24h change.
+6. Coins below your min MC or volume thresholds are marked “filtered” and skipped.
+7. Click **Buy In** on any row to launch the automated trader (requires `.env` + `bot-app.ts`).
+
+#### 8. Stop the tracker
+Press `Ctrl + C` in the terminal.
+
+#### 9. Uploading to GitHub (if you haven’t already)
+```cmd
+git init
+git add .
+git commit -m "Initial commit - crypto price tracker"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/crypto-tracker.git
+git push -u origin main
+```
+
+If you get “origin already exists”:
+```cmd
+git remote set-url origin https://github.com/YOUR_USERNAME/crypto-tracker.git
+git push -u origin main
+```
+
+#### Troubleshooting
+| Problem | Fix |
+|---------|-----|
+| “Cannot GET /” | Use the full URL: `http://localhost:3000/tracker.html` |
+| Price stays “—” | Check the mint address and internet connection |
+| Buy In does nothing | Make sure `.env` has a valid private key and `bot-app.ts` is in the same folder |
+| Notifications don’t appear | Click the lock icon in the browser address bar and allow notifications |
+| Git push fails | Confirm the repository exists on GitHub and you’re logged into the correct account |
+
+That’s it. The tracker runs entirely on your machine and uses the free DexScreener API for price, market cap, and volume data.

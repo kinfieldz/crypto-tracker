@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Crypto Tracker</title>
+  <style>
+    body { font-family: Consolas, monospace; background: #0d0f0c; color: #d4cfc7; margin: 1rem; }
+    h1 { color: #8fbc8f; }
+    .card { background: #1a1e16; border: 1px solid #2c3326; padding: 1rem; margin-bottom: 1rem; }
+    input, button { font-family: inherit; padding: 0.4rem; margin: 0.2rem; background: #121510; color: #fff; border: 1px solid #333; }
+    button { background: #2a3a28; color: #8fbc8f; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th, td { border: 1px solid #2c3326; padding: 0.4rem; text-align: left; }
+    th { background: #1a1e16; color: #8fbc8f; }
+    .up { color: #8fbc8f; } .down { color: #c77; }
+    .small { font-size: 0.7rem; color: #8a8478; }
+  </style>
+</head>
+<body>
+  <h1>Crypto Price Tracker</h1>
+  <div class="card">
+    <input id="mint" placeholder="Token mint or symbol">
+    <input id="alertUp" type="number" placeholder="Alert up %" value="10" style="width:100px">
+    <input id="alertDown" type="number" placeholder="Alert down %" value="10" style="width:110px">
+    <input id="minMcap" type="number" placeholder="Min MC ($)" value="50000" style="width:120px">
+    <input id="minVol" type="number" placeholder="Min 24h Vol ($)" value="10000" style="width:140px">
+    <button onclick="addToken()">Add</button>
+  </div>
+  <div class="card">
+    <table id="table">
+      <thead>
+        <tr>
+          <th>Token</th>
+          <th>Price</th>
+          <th>MC</th>
+          <th>24h Vol</th>
+          <th>24h</th>
+          <th>Alert</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="card">
+    <pre id="logs">Ready</pre>
+  </div>
+
+  <script>
+    let tokens = JSON.parse(localStorage.getItem("tokens") || "[]");
+
+    function log(m) {
+      const el = document.getElementById("logs");
+      el.textContent = `[${new Date().toLocaleTimeString()}] ${m}\n` + el.textContent;
+    }
+
+    function render() {
+      const tbody = document.querySelector("#table tbody");
+      tbody.innerHTML = "";
+      tokens.forEach((t, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${t.symbol || t.mint.slice(0,6)}<div class="small">${t.mint.slice(0,8)}…</div></td>
+          <td id="price-${i}">—</td>
+          <td id="mcap-${i}">—</td>
+          <td id="vol-${i}">—</td>
+          <td id="chg-${i}">—</td>
+          <td>±${t.alertUp}% / -${t.alertDown}%</td>
+          <td>
+            <button onclick="buy(${i})">Buy In</button>
+            <button onclick="remove(${i})">X</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function updatePrices() {
+      const minMcap = +document.getElementById("minMcap").value || 0;
+      const minVol = +document.getElementById("minVol").value || 0;
+
+      for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i];
+        try {
+          const res = await fetch(`/api/price?mint=${t.mint}`);
+          const d = await res.json();
+
+          if (!d.price) continue;
+
+          if ((d.marketCap || 0) < minMcap || (d.volume24h || 0) < minVol) {
+            document.getElementById(`price-${i}`).textContent = "filtered";
+            continue;
+          }
+
+          document.getElementById(`price-${i}`).textContent = "$" + d.price.toFixed(6);
+          document.getElementById(`mcap-${i}`).textContent = d.marketCap ? "$" + Math.round(d.marketCap).toLocaleString() : "—";
+          document.getElementById(`vol-${i}`).textContent = d.volume24h ? "$" + Math.round(d.volume24h).toLocaleString() : "—";
+
+          const chEl = document.getElementById(`chg-${i}`);
+          chEl.textContent = (d.change24h || 0).toFixed(1) + "%";
+          chEl.className = (d.change24h || 0) >= 0 ? "up" : "down";
+
+          if ((d.change24h || 0) >= t.alertUp) notify(t.symbol, `Up ${d.change24h.toFixed(1)}%`);
+          if ((d.change24h || 0) <= -t.alertDown) notify(t.symbol, `Down ${Math.abs(d.change24h).toFixed(1)}%`);
+        } catch {}
+      }
+    }
+
+    function notify(sym, msg) {
+      if (Notification.permission === "granted") new Notification(sym || "Token", { body: msg });
+      log(`${sym || "Token"}: ${msg}`);
+    }
+
+    function addToken() {
+      const mint = document.getElementById("mint").value.trim();
+      if (!mint) return;
+      tokens.push({
+        mint,
+        symbol: mint.length > 20 ? mint.slice(0,6) : mint,
+        alertUp: +document.getElementById("alertUp").value || 10,
+        alertDown: +document.getElementById("alertDown").value || 10
+      });
+      localStorage.setItem("tokens", JSON.stringify(tokens));
+      render();
+    }
+
+    function remove(i) {
+      tokens.splice(i, 1);
+      localStorage.setItem("tokens", JSON.stringify(tokens));
+      render();
+    }
+
+    async function buy(i) {
+      const t = tokens[i];
+      const usd = prompt("Buy size in USD?", "5");
+      const sl = prompt("Stop-loss %?", "15");
+      const tp = prompt("Take-profit %?", "30");
+      if (!usd) return;
+      await fetch("/api/buy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mint: t.mint, usd: +usd, stopLoss: +sl, takeProfit: +tp })
+      });
+      log(`Buy order sent for ${t.symbol || t.mint.slice(0,6)}`);
+    }
+
+    if (Notification.permission !== "granted") Notification.requestPermission();
+    render();
+    setInterval(updatePrices, 20000);
+    updatePrices();
+  </script>
+</body>
+</html>
